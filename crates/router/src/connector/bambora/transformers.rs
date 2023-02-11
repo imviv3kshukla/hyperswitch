@@ -71,25 +71,25 @@ impl TryFrom<&types::ConnectorAuthType> for BamboraAuthType {
     }
 }
 // PaymentsResponse
-//TODO: Append the remaining status flags
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum BamboraPaymentStatus {
-    Succeeded,
-    Failed,
-    #[default]
-    Processing,
-}
+// //TODO: Append the remaining status flags
+// #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+// #[serde(rename_all = "lowercase")]
+// pub enum BamboraPaymentStatus {
+//     Succeeded,
+//     Failed,
+//     #[default]
+//     Processing,
+// }
 
-impl From<BamboraPaymentStatus> for enums::AttemptStatus {
-    fn from(item: BamboraPaymentStatus) -> Self {
-        match item {
-            BamboraPaymentStatus::Succeeded => Self::Charged,
-            BamboraPaymentStatus::Failed => Self::Failure,
-            BamboraPaymentStatus::Processing => Self::Authorizing,
-        }
-    }
-}
+// impl From<BamboraPaymentStatus> for enums::AttemptStatus {
+//     fn from(item: BamboraPaymentStatus) -> Self {
+//         match item {
+//             BamboraPaymentStatus::Succeeded => Self::Charged,
+//             BamboraPaymentStatus::Failed => Self::Failure,
+//             BamboraPaymentStatus::Processing => Self::Authorizing,
+//         }
+//     }
+// }
 
 // //TODO: Fill the struct with respective fields
 // #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -106,19 +106,17 @@ impl<F, T>
     fn try_from(
         item: types::ResponseRouterData<F, BamboraPaymentsResponse, T, types::PaymentsResponseData>,
     ) -> Result<Self, Self::Error> {
-        let pg_response = match item.response {
-            BamboraPaymentsResponse::SuccessPaymentResponse(resp) => resp,
-            BamboraPaymentsResponse::ErrorRespType(_error_resp) => Err(errors::ParsingError)?,
-            //TODO Handle Error response
-        };
+        logger::debug!(payment_sync_response=?item.response);
+        let pg_response = item.response;
         Ok(Self {
-            status: match pg_response.approved {
-                0 => enums::AttemptStatus::Failure,
-                1 => enums::AttemptStatus::Pending,
-                i32::MIN..=-1_i32 | 2_i32..=i32::MAX => todo!()
+            status: match pg_response.approved.as_str() {
+                "0" => enums::AttemptStatus::Failure,
+                "1" => enums::AttemptStatus::Pending,
+                &_ => todo!(),
+                // _ => todo!()
             },
             response: Ok(types::PaymentsResponseData::TransactionResponse {
-                resource_id: types::ResponseId::ConnectorTransactionId(pg_response.id.to_string()),
+                resource_id: types::ResponseId::ConnectorTransactionId(pg_response.id),
                 redirection_data: None,
                 redirect: false,
                 mandate_reference: None,
@@ -129,12 +127,12 @@ impl<F, T>
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum BamboraPaymentsResponse {
-    SuccessPaymentResponse(BamboraPaymentsSuccessResponse),
-    ErrorRespType(BamboraPaymentsErrorResponse)
-}
-
+// #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+// pub enum BamboraPaymentsResponse {
+//     SuccessPaymentResponse(BamboraPaymentsSuccessResponse),
+//     ErrorRespType(BamboraPaymentsErrorResponse)
+// }
+//TODO How to handle error response
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BamboraPaymentsErrorResponse {
     code: i32,
@@ -167,41 +165,53 @@ pub struct CardValidation {
 
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct BamboraPaymentsSuccessResponse {
-    id : i32,
-    authorizing_merchant_id : i32,
-    approved : i32,
-    message_id : i32,
-    message : String,
+pub struct BamboraPaymentsResponse {
+    id : String, 
+    authorizing_merchant_id : i32, 
+    approved : String, 
+    message_id : String, 
+    message : String, 
     auth_code : String,
     created : String,
     amount : f32,
     order_number : String,
     #[serde(rename = "type")]
     payment_type : String,
-    comments : String,
-    batch_number : String,
-    total_refunds : f32,
-    total_completions : f32,
+    comments : Option<String>,
+    batch_number : Option<String>,
+    total_refunds : Option<f32>,
+    total_completions : Option<f32>,
     payment_method : String,
     card : CardData,
-    billing : AddressData,
-    shipping : AddressData,
+    billing : Option<AddressData>,
+    shipping : Option<AddressData>,
     custom : CustomData,
-    adjusted_by : Vec<AdjustedBy>,
-    links : Vec<Links>
+    adjusted_by : Option<Vec<AdjustedBy>>,
+    links : Vec<Links>,
+    risk_score : String
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CardData {
-    name : String,
-    expiry_month : String,
-    expiry_year : String,
+    name : Option<String>,
+    expiry_month : Option<String>,
+    expiry_year : Option<String>,
     card_type : String,
     last_four : String,
+    card_bin : String,
     avs_result : String,
     cvd_result : String,
-    cavv_result: String
+    cavv_result: Option<String>,
+    address_match: i32,
+    postal_result: i32,
+    avs: AvsObject 
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AvsObject {
+    id : String,
+    message : String,
+    processed : bool
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]

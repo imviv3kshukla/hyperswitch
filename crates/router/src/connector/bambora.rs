@@ -301,6 +301,7 @@ impl ConnectorIntegration<api::Authorize, types::PaymentsAuthorizeData, types::P
         data: &types::PaymentsAuthorizeRouterData,
         res: Response,
     ) -> CustomResult<types::PaymentsAuthorizeRouterData, errors::ConnectorError> {
+        logger::debug!(bamborapayments_create_response_test=?res);
         let response: bambora::BamboraPaymentsResponse = res
             .response
             .parse_struct("PaymentIntentResponse")
@@ -319,6 +320,7 @@ impl ConnectorIntegration<api::Authorize, types::PaymentsAuthorizeData, types::P
         &self,
         res: Response,
     ) -> CustomResult<ErrorResponse, errors::ConnectorError> {
+        logger::debug!(bamborapayments_create_err_response_test=?res);
         self.build_error_response(res)
     }
 }
