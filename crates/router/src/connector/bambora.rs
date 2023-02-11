@@ -33,7 +33,15 @@ where
         _req: &types::RouterData<Flow, Request, Response>,
         _connectors: &settings::Connectors,
     ) -> CustomResult<Vec<(String, String)>, errors::ConnectorError> {
-        todo!()
+        let mut header = vec![
+            (
+                headers::CONTENT_TYPE.to_string(),
+                types::PaymentsAuthorizeType::get_content_type(self).to_string(),
+            ),
+        ];
+        let mut api_key = self.get_auth_header(&_req.connector_auth_type)?;
+        header.append(&mut api_key);
+        Ok(header)
     }
 }
 
@@ -43,8 +51,8 @@ impl ConnectorCommon for Bambora {
     }
 
     fn common_get_content_type(&self) -> &'static str {
-        todo!()
-        // Ex: "application/x-www-form-urlencoded"
+        // todo!()
+        "application/json"
     }
 
     fn base_url<'a>(&self, connectors: &'a settings::Connectors) -> &'a str {
@@ -255,7 +263,7 @@ impl ConnectorIntegration<api::Authorize, types::PaymentsAuthorizeData, types::P
         Ok(format!(
             "{}{}",
             self.base_url(_connectors),
-            "v1/payments"
+            "/v1/payments"
         ))
     }
 
@@ -265,6 +273,7 @@ impl ConnectorIntegration<api::Authorize, types::PaymentsAuthorizeData, types::P
     ) -> CustomResult<Option<String>, errors::ConnectorError> {
         let bambora_req = utils::Encode::<bambora::BamboraPaymentsRequest>::convert_and_encode(req)
             .change_context(errors::ConnectorError::RequestEncodingFailed)?;
+        logger::debug!(log_log=?bambora_req);
         Ok(Some(bambora_req))
     }
 

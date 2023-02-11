@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-
+use router_env::logger;
 use crate::{
     // connector::utils::AccessTokenRequestInfo,
     // consts,
@@ -15,8 +15,8 @@ pub struct BamboraCard {
     number: String,
     expiry_month: String,
     expiry_year: String,
-    cvd: String,
-    complete: bool
+    cvd: String
+    // complete: bool
 }
 
 #[derive(Default, Debug, Serialize, Eq, PartialEq)]
@@ -37,9 +37,10 @@ impl TryFrom<&types::PaymentsAuthorizeRouterData> for BamboraPaymentsRequest {
                     number: req_card.card_number.peek().clone(),
                     expiry_month: req_card.card_exp_month.peek().clone(),
                     expiry_year: req_card.card_exp_year.peek().clone(),
-                    cvd: req_card.card_cvc.peek().clone(),
-                    complete: false
+                    cvd: req_card.card_cvc.peek().clone()
+                    // complete: false
                 };
+                logger::debug!(log_log=?_item);
                 Ok(Self {
                     amount: _item.request.amount,
                     payment_method: "card".to_string(),
@@ -60,7 +61,13 @@ pub struct BamboraAuthType {
 impl TryFrom<&types::ConnectorAuthType> for BamboraAuthType {
     type Error = error_stack::Report<errors::ConnectorError>;
     fn try_from(_auth_type: &types::ConnectorAuthType) -> Result<Self, Self::Error> {
-        todo!()
+        if let types::ConnectorAuthType::HeaderKey { api_key } = _auth_type {
+            Ok(Self {
+                api_key: api_key.to_string(),
+            })
+        } else {
+            Err(errors::ConnectorError::FailedToObtainAuthType)?
+        }
     }
 }
 // PaymentsResponse
@@ -290,6 +297,7 @@ impl TryFrom<types::RefundsResponseRouterData<api::Execute, RefundResponse>>
     fn try_from(
         _item: types::RefundsResponseRouterData<api::Execute, RefundResponse>,
     ) -> Result<Self, Self::Error> {
+        
         todo!()
     }
 }
