@@ -58,7 +58,7 @@ impl ConnectorCommon for Bambora {
         let auth: bambora::BamboraAuthType = auth_type
             .try_into()
             .change_context(errors::ConnectorError::FailedToObtainAuthType)?;
-        Ok(vec![(headers::AUTHORIZATION.to_string(), auth.api_key)])
+        Ok(vec![(headers::AUTHORIZATION.to_string(), ("Passcode ".to_string() + &auth.api_key.to_string()))])
     }
 }
 
