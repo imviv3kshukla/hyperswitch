@@ -1,8 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    connector::utils::AccessTokenRequestInfo,
+    consts,
     core::errors,
+    pii::{self, Secret},
     types::{self, api, storage::enums},
+    utils::OptionExt,
 };
 
 //TODO: Fill the struct with respective fields
@@ -49,12 +53,12 @@ impl From<BamboraPaymentStatus> for enums::AttemptStatus {
     }
 }
 
-//TODO: Fill the struct with respective fields
-#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct BamboraPaymentsResponse {
-    status: BamboraPaymentStatus,
-    id: String,
-}
+// //TODO: Fill the struct with respective fields
+// #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+// pub struct BamboraPaymentsResponse {
+//     status: BamboraPaymentStatus,
+//     id: String,
+// }
 
 impl<F, T>
     TryFrom<types::ResponseRouterData<F, BamboraPaymentsResponse, T, types::PaymentsResponseData>>
@@ -64,10 +68,19 @@ impl<F, T>
     fn try_from(
         item: types::ResponseRouterData<F, BamboraPaymentsResponse, T, types::PaymentsResponseData>,
     ) -> Result<Self, Self::Error> {
+        let pg_response = match item.response {
+            BamboraPaymentsResponse::SuccessPaymentResponse(resp) => resp,
+            BamboraPaymentsResponse::ErrorRespType(_error_resp) => Err(errors::ParsingError)?,
+            //TODO Handle Error response
+        };
         Ok(Self {
-            status: enums::AttemptStatus::from(item.response.status),
+            status: match pg_response.approved {
+                0 => enums::AttemptStatus::Failure,
+                1 => enums::AttemptStatus::Pending,
+                i32::MIN..=-1_i32 | 2_i32..=i32::MAX => todo!()
+            },
             response: Ok(types::PaymentsResponseData::TransactionResponse {
-                resource_id: types::ResponseId::ConnectorTransactionId(item.response.id),
+                resource_id: types::ResponseId::ConnectorTransactionId(pg_response.id.to_string()),
                 redirection_data: None,
                 redirect: false,
                 mandate_reference: None,
@@ -77,6 +90,128 @@ impl<F, T>
         })
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum BamboraPaymentsResponse {
+    SuccessPaymentResponse(BamboraPaymentsSuccessResponse),
+    ErrorRespType(BamboraPaymentsErrorResponse)
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BamboraPaymentsErrorResponse {
+    code: i32,
+    category: i32,
+    message: String,
+    reference: String,
+    details: Vec<ErrorDetail>,
+    validation: Option<CardValidation>,
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ErrorDetail {
+    field: String,
+    message: String,
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CardValidation {
+    id: String,
+    approved: i32,
+    message_id: i32,
+    message: String,
+    auth_code: String,
+    trans_date: String,
+    order_number: String,
+    type_: String,
+    amount: f64,
+    cvd_id: i32,
+}
+
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BamboraPaymentsSuccessResponse {
+    id : i32,
+    authorizing_merchant_id : i32,
+    approved : i32,
+    message_id : i32,
+    message : String,
+    auth_code : String,
+    created : String,
+    amount : f32,
+    order_number : String,
+    #[serde(rename = "type")]
+    payment_type : String,
+    comments : String,
+    batch_number : String,
+    total_refunds : f32,
+    total_completions : f32,
+    payment_method : String,
+    card : CardData,
+    billing : AddressData,
+    shipping : AddressData,
+    custom : CustomData,
+    adjusted_by : Vec<AdjustedBy>,
+    links : Vec<Links>
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CardData {
+    name : String,
+    expiry_month : String,
+    expiry_year : String,
+    card_type : String,
+    last_four : String,
+    avs_result : String,
+    cvd_result : String,
+    cavv_result: String
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AddressData {
+    name : String,
+    address_line1 : String,
+    address_line2 : String,
+    city : String,
+    province : String,
+    country : String,
+    postal_code : String,
+    phone_number : String,
+    email_address : String
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CustomData {
+    ref1 : String, 
+    ref2 : String, 
+    ref3 : String, 
+    ref4 : String, 
+    ref5 : String
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AdjustedBy {
+    id : i32, 
+    #[serde(rename = "type")]
+    adjusted_by_type : String, 
+    approval : i32, 
+    message : String, 
+    amount : f32, 
+    created : String, 
+    url : String
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Links {
+    rel : String, 
+    href : String, 
+    method: String 
+}
+
+
+
+
+
+
 
 //TODO: Fill the struct with respective fields
 // REFUND :
