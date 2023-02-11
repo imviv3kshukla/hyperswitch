@@ -252,7 +252,11 @@ impl ConnectorIntegration<api::Authorize, types::PaymentsAuthorizeData, types::P
         _req: &types::PaymentsAuthorizeRouterData,
         _connectors: &settings::Connectors,
     ) -> CustomResult<String, errors::ConnectorError> {
-        todo!()
+        Ok(format!(
+            "{}{}",
+            self.base_url(_connectors),
+            "v1/payments"
+        ))
     }
 
     fn get_request_body(

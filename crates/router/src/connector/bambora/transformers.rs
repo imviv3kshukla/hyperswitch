@@ -1,22 +1,53 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    connector::utils::AccessTokenRequestInfo,
-    consts,
+    // connector::utils::AccessTokenRequestInfo,
+    // consts,
     core::errors,
-    pii::{self, Secret},
+    pii::PeekInterface,
     types::{self, api, storage::enums},
-    utils::OptionExt,
+    // utils::OptionExt,
 };
 
-//TODO: Fill the struct with respective fields
 #[derive(Default, Debug, Serialize, Eq, PartialEq)]
-pub struct BamboraPaymentsRequest {}
+pub struct BamboraCard {
+    name: String,
+    number: String,
+    expiry_month: String,
+    expiry_year: String,
+    cvd: String,
+    complete: bool
+}
+
+#[derive(Default, Debug, Serialize, Eq, PartialEq)]
+pub struct BamboraPaymentsRequest {
+    amount: i64,
+    payment_method: String,
+    card: BamboraCard,
+}
+
 
 impl TryFrom<&types::PaymentsAuthorizeRouterData> for BamboraPaymentsRequest {
     type Error = error_stack::Report<errors::ConnectorError>;
     fn try_from(_item: &types::PaymentsAuthorizeRouterData) -> Result<Self, Self::Error> {
-        todo!()
+        match _item.request.payment_method_data {
+            api::PaymentMethod::Card (ref req_card) => {
+                let bambora_card =  BamboraCard {
+                    name: req_card.card_holder_name.peek().clone(),
+                    number: req_card.card_number.peek().clone(),
+                    expiry_month: req_card.card_exp_month.peek().clone(),
+                    expiry_year: req_card.card_exp_year.peek().clone(),
+                    cvd: req_card.card_cvc.peek().clone(),
+                    complete: false
+                };
+                Ok(Self {
+                    amount: _item.request.amount,
+                    payment_method: "card".to_string(),
+                    card: bambora_card
+                })
+            }
+            _ => Err(errors::ConnectorError::NotImplemented("Payment methods".to_string()).into()),
+        }
     }
 }
 
